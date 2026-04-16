@@ -1,0 +1,302 @@
+/* System fonts only — no remote code */
+
+#ads-panel {
+  all: initial;
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Mono', monospace !important;
+  font-size: 13px;
+  display: block;
+  width: 100%;
+  max-width: 680px;
+  margin: 20px auto 24px auto;
+  background: #0f1118;
+  border: 1.5px solid #1e2a3d;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(59,130,246,0.08);
+  position: relative;
+  z-index: 9999;
+  box-sizing: border-box;
+}
+
+#ads-panel * {
+  box-sizing: border-box;
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Mono', monospace;
+}
+
+.ads-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #0b0d14;
+  border-bottom: 1px solid #1e2a3d;
+}
+
+.ads-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.ads-logo-icon {
+  font-size: 16px;
+}
+
+.ads-logo-text {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 800;
+  font-size: 13px;
+  color: #e8eaf0;
+  letter-spacing: -0.01em;
+}
+
+.ads-verdict, .ads-confidence {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ads-toggle {
+  all: unset;
+  cursor: pointer;
+  color: #4b5563;
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: color 0.2s;
+}
+.ads-toggle:hover { color: #9ca3af; }
+
+.ads-body {
+  padding: 16px;
+}
+
+.ads-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ads-stat {
+  background: #13161f;
+  border: 1px solid #1e2a3d;
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.ads-stat-highlight {
+  border-color: #ef444430;
+}
+
+.ads-stat-label {
+  font-size: 10px;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 5px;
+  display: block;
+}
+
+.ads-stat-value {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 700;
+  font-size: 17px;
+  color: #e8eaf0;
+  display: block;
+}
+
+.ads-divider {
+  border: none;
+  border-top: 1px solid #1e2a3d;
+  margin: 14px 0;
+}
+
+.ads-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ads-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid #13161f;
+}
+
+.ads-detail-total {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #1e2a3d;
+  border-bottom: none;
+}
+
+.ads-detail-label {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.ads-detail-value {
+  font-size: 12px;
+  color: #d1d5db;
+  font-weight: 500;
+}
+
+.ads-note {
+  font-size: 10px;
+  color: #f59e0b;
+  font-style: italic;
+}
+
+.ads-warning {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #1c1000;
+  border: 1px solid #f59e0b30;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #f59e0b;
+  line-height: 1.5;
+}
+
+.ads-footer {
+  margin-top: 14px;
+  font-size: 10px;
+  color: #374151;
+  text-align: center;
+}
+
+.ads-footer a {
+  color: #374151;
+  text-decoration: none;
+}
+.ads-footer a:hover {
+  color: #6b7280;
+  text-decoration: underline;
+}
+
+/* User inputs section */
+.ads-inputs {
+  background: #0f1118;
+  border: 1px solid #1e2a3d;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 14px;
+}
+
+.ads-inputs-title {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+
+.ads-input-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 10px;
+}
+
+.ads-input-label {
+  font-size: 11px;
+  color: #6b7280;
+  flex: 1;
+}
+
+.ads-input-wrap {
+  display: flex;
+  align-items: center;
+  background: #13161f;
+  border: 1px solid #2d3a52;
+  border-radius: 6px;
+  overflow: hidden;
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.ads-input {
+  all: unset;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-size: 12px;
+  color: #e8eaf0;
+  background: transparent;
+  padding: 5px 8px;
+  width: 100%;
+  text-align: right;
+}
+
+.ads-input:focus {
+  outline: none;
+  background: #1a2035;
+}
+
+.ads-input-unit {
+  font-size: 11px;
+  color: #4b5563;
+  padding: 0 6px 0 2px;
+  flex-shrink: 0;
+}
+
+.ads-recalc-btn {
+  all: unset;
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 0;
+  background: #1d4ed8;
+  color: white;
+  text-align: center;
+  border-radius: 6px;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  box-sizing: border-box;
+}
+
+.ads-recalc-btn:hover { background: #2563eb; }
+
+.ads-from-page {
+  font-size: 10px;
+  color: #22c55e;
+  margin-left: 4px;
+}
+
+.ads-badge {
+  display: block;
+  margin: 6px 0 2px 0;
+}
+
+.ads-badge-label {
+  display: inline-block;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+
+/* Responsive */
+@media (max-width: 500px) {
+  .ads-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .ads-stat-value {
+    font-size: 14px;
+  }
+}

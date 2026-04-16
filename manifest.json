@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Auto Deal Scanner",
+  "version": "1.0.0",
+  "description": "Näe auton rahoituksen todellinen kokonaishinta suoraan Nettiauto-sivulla. See the real total cost of car financing on Nettiauto.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.nettiauto.com/*"],
+      "js": ["src/content.js"],
+      "css": ["src/panel.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "permissions": [],
+  "host_permissions": [
+    "*://*.nettiauto.com/*"
+  ]
+}
