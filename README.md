@@ -17,6 +17,9 @@ Finnish car dealers advertise low monthly payments — but hide the real total c
 
 On search results pages, every listing card gets a mini badge showing the estimated total cost.
 
+<img width="882" height="1282" alt="image" src="https://github.com/user-attachments/assets/cf6c1981-c33f-4675-a29c-c981eacaadb6" />
+
+
 ---
 
 ## Install
