@@ -18,7 +18,9 @@ Finnish car dealers advertise low monthly payments — but hide the real total c
 - **Editable inputs** — correct rate or monthly payment and recalculate instantly
 - **Private listing mode** — manual input form when no financing info is shown
 
-<img width="882" height="1282" alt="image" src="https://github.com/user-attachments/assets/cf6c1981-c33f-4675-a29c-c981eacaadb6" />
+
+<img width="770" height="990" alt="image" src="https://github.com/user-attachments/assets/fb0319e7-be0e-4ab3-afe0-3b4fbbce2491" />
+
 
 ---
 
