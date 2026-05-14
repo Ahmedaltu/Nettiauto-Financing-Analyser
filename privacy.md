@@ -1,8 +1,8 @@
-# Privacy Policy — Auto Deal Scanner
+# Privacy Policy — Nettiauto Financing Analyser
 
 **Last updated: April 2026**
 
-Auto Deal Scanner does not collect, store, or transmit any personal data.
+Nettiauto Financing Analyser does not collect, store, or transmit any personal data.
 
 ## What the extension does
 - Reads car listing pages on nettiauto.com that are already loaded in your browser
@@ -17,4 +17,4 @@ Auto Deal Scanner does not collect, store, or transmit any personal data.
 - We do not store your browsing history
 
 ## Contact
-For questions: github.com/Ahmedaltu/auto-deal-scanner/issues
+For questions: github.com/Ahmedaltu/Nettiauto-Financing-Analyser/issues

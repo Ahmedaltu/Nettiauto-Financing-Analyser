@@ -1,5 +1,5 @@
 /**
- * Auto Deal Scanner — content.js (v2)
+ * Nettiauto Financing Analyser — content.js (v2)
  * Runs on nettiauto.com pages.
  * - Listing pages: inject full deal analysis panel
  * - Search pages: inject mini cost badges on result cards
@@ -13,6 +13,7 @@
   // ────────────────────────────────────────────────────────────────────────────
 
   let searchObserver = null;
+  let searchRaf = 0;
   let urlObserver = null;
   let lastUrl = location.href;
 
@@ -22,30 +23,32 @@
 
   function extractNumber(text) {
     if (!text) return null;
-    const s = String(text).replace(/\u00a0/g, ' ').trim();
-    // Handle European format: 17 890 € or 17,890 € (thousands) or 17.890 €
-    // Remove currency symbol and spaces
-    const cleaned = s.replace(/€/g, '').replace(/\s/g, '');
-    // If contains both . and , treat last one as decimal
-    // If only comma and it's followed by exactly 2 digits at end → decimal (1.345,95)
-    // If comma with 3 digits after → thousands separator (17,890)
-    let normalized;
-    if (/,\d{3}$/.test(cleaned) && !cleaned.includes('.')) {
-      // e.g. "17,890" → thousands separator → "17890"
-      normalized = cleaned.replace(/,/g, '');
-    } else if (/\.\d{3}/.test(cleaned) && /,\d{2}$/.test(cleaned)) {
-      // e.g. "17.890,50" → European format
-      normalized = cleaned.replace(/\./g, '').replace(',', '.');
-    } else {
-      // Default: remove thousands dots/commas, keep last separator as decimal
-      normalized = cleaned.replace(/[.,](?=\d{3})/g, '').replace(',', '.');
-    }
-    const val = parseFloat(normalized);
-    return Number.isFinite(val) ? val : null;
-  }
+    const raw = String(text)
+      .replace(/\u00a0/g, ' ')
+      .replace(/[€%]/g, '')
+      .replace(/[^\d,\.\- ]/g, '')
+      .trim()
+      .replace(/\s+/g, '');
 
-  function round2(val) {
-    return Math.round(val * 100) / 100;
+    if (!raw) return null;
+
+    const lastComma = raw.lastIndexOf(',');
+    const lastDot = raw.lastIndexOf('.');
+
+    let normalized = raw;
+    if (lastComma > lastDot) {
+      // Finnish style: 17.890,50 -> 17890.50
+      normalized = raw.replace(/\./g, '').replace(',', '.');
+    } else if (lastDot > lastComma) {
+      // EN style: 17,890.50 -> 17890.50
+      normalized = raw.replace(/,/g, '');
+    } else {
+      // Single separator or none: remove likely thousands separators only.
+      normalized = raw.replace(/[.,](?=\d{3}\b)/g, '');
+    }
+
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : null;
   }
 
   function formatEur(val, decimals = 0) {
@@ -93,7 +96,9 @@
     let monthlyPayment;
 
     if (monthlyPaymentGiven && monthlyPaymentGiven > 0) {
-      const minRequired = (principal * 0.8) / termMonths;
+      // Guard against teaser-like monthly values while allowing balloon-heavy structures.
+      const minAmortized = Math.max((financedPrincipal - (balloon || 0)) / termMonths, 0);
+      const minRequired = minAmortized * 0.9;
       if (monthlyPaymentGiven >= minRequired) {
         monthlyPayment = monthlyPaymentGiven;
       }
@@ -173,6 +178,9 @@
     let fLow = npv(low);
     let fHigh = npv(high);
 
+    // If total undiscounted outflows are below net advance, no non-negative IRR exists.
+    if (fLow < 0) return null;
+
     let expansions = 0;
     while (fLow * fHigh > 0 && expansions < 10) {
       high *= 2;
@@ -203,8 +211,26 @@
     return Math.pow(1 + monthlyIrr, 12) - 1;
   }
 
-  function getVerdict(totalFinanceCost, price) {
+  function getVerdict(totalFinanceCost, price, apr = null, termMonths = null) {
     const ratio = price > 0 ? totalFinanceCost / price : 0;
+
+    // Prefer effective APR bands when available.
+    if (apr != null && Number.isFinite(apr) && apr >= 0) {
+      const aprPct = apr * 100;
+
+      if (aprPct < 6.0) return { label: 'Erinomainen', color: '#22c55e', bg: '#052e16' };
+      if (aprPct < 9.0) {
+        // Long terms make moderate APRs more expensive in total terms.
+        if (termMonths != null && termMonths >= 84 && aprPct >= 8.0) {
+          return { label: 'Kohtalainen', color: '#f59e0b', bg: '#1c1000' };
+        }
+        return { label: 'Hyvä', color: '#60a5fa', bg: '#0c1a2e' };
+      }
+      if (aprPct < 13.0) return { label: 'Kohtalainen', color: '#f59e0b', bg: '#1c1000' };
+      return { label: 'Kallis', color: '#ef4444', bg: '#1c0000' };
+    }
+
+    // Fallback when APR cannot be computed.
     if (ratio < 0.08) return { label: 'Erinomainen', color: '#22c55e', bg: '#052e16' };
     if (ratio < 0.15) return { label: 'Hyvä', color: '#60a5fa', bg: '#0c1a2e' };
     if (ratio < 0.25) return { label: 'Kohtalainen', color: '#f59e0b', bg: '#1c1000' };
@@ -245,7 +271,7 @@
         const items = Array.isArray(parsed) ? parsed : [parsed];
         for (const item of items) {
           if (item?.offers?.price) {
-            const p = parseFloat(item.offers.price);
+            const p = extractNumber(String(item.offers.price));
             if (Number.isFinite(p)) return p;
           }
         }
@@ -254,16 +280,14 @@
     return null;
   }
 
-  function getFinanceContextText(fullText) {
-    const patterns = [
-      /(.{0,300}(?:rahoitus|kuukausierä|kuukausimaksu|korko|hoitomaksu).{0,800})/i,
-      /(.{0,300}(?:€\s*\/\s*kk|\/kk).{0,500})/i
-    ];
-    for (const pat of patterns) {
-      const match = fullText.match(pat);
-      if (match) return match[1];
+  function firstText(selectors) {
+    for (const selector of selectors) {
+      const el = document.querySelector(selector);
+      if (!el) continue;
+      const val = (el.value || el.textContent || '').trim();
+      if (val) return val;
     }
-    return fullText;
+    return null;
   }
 
   function parseListingPage() {
@@ -273,9 +297,11 @@
     const text = safeText(clone);
 
     // ── Price — confirmed selector
-    let price = null;
-    const priceEl = document.querySelector('.details-page-header__item-price-main');
-    if (priceEl) price = extractNumber(priceEl.innerText);
+    let price = extractNumber(firstText([
+      '.details-page-header__item-price-main',
+      '[data-testid="price"]',
+      '[class*="price-main"]'
+    ]));
     if (!price) price = extractJsonLdPrice();
     if (!price) {
       const metaPrice = document.querySelector('meta[property="product:price:amount"]');
@@ -289,11 +315,14 @@
     // ── Interest rate — OP widget is the only reliable source on Nettiauto
     // Dealer's own rate is not shown on the listing page
     let nominalRatePct = null;
-    const opRateEl = document.querySelector('#opd_mir');
-    if (opRateEl) {
-      const val = extractNumber(opRateEl.innerText);
-      if (val && val > 0 && val < 30) nominalRatePct = val;
-    }
+    const opRateText = firstText([
+      '#opd_mir',
+      '[id*="mir"]',
+      '[data-testid*="interest"]',
+      '[aria-label*="korko" i]'
+    ]);
+    const opRateVal = extractNumber(opRateText);
+    if (opRateVal && opRateVal > 0 && opRateVal < 30) nominalRatePct = opRateVal;
     // Fallback: text patterns for dealers who do show their rate
     if (!nominalRatePct) {
       const rateMatch = text.match(/[Nn]imelliskorko[:\s]*([\d,.]+)\s*%/)
@@ -304,11 +333,13 @@
 
     // ── Term — OP widget selected value
     let term = 60;
-    const opPeriodEl = document.querySelector('#opdLoanPeriod');
-    if (opPeriodEl && opPeriodEl.value) {
-      const t = parseInt(opPeriodEl.value);
-      if (t >= 12 && t <= 96) term = t;
-    }
+    const opPeriodText = firstText([
+      '#opdLoanPeriod',
+      'select[name*="period" i] option:checked',
+      '[data-testid*="loan-period"]'
+    ]);
+    const t = parseInt(opPeriodText, 10);
+    if (t >= 12 && t <= 96) term = t;
 
     // ── Monthly payment
     // "alk. X €/kk" is always a teaser — NEVER use it
@@ -330,7 +361,7 @@
     let toimistomaksu = 0;
     for (const box of document.querySelectorAll('.vehicle-info-box')) {
       const label = box.querySelector('.vehicle-info-box__vehicle-info')?.innerText || '';
-      if (/toimisto|office.fee|k[äa]sittely|hallinto|document/i.test(label)) {
+      if (/toimisto|office\.fee|k[äa]sittely|hallinto|document/i.test(label)) {
         const valEl = box.querySelector('.vehicle-info-box__vehicle-det');
         if (valEl) {
           const val = extractNumber(valEl.innerText);
@@ -344,7 +375,10 @@
     const openMatch = text.match(/(?:avausmaksu|aloitusmaksu|j[äa]rjestelymaksu)[:\s]*([\d\s,.]+)\s*€/i);
     if (openMatch) openingFeeBase = extractNumber(openMatch[1]) || 0;
 
-    const openingFee = openingFeeBase + toimistomaksu;
+    const combinedFeeHint = /avausmaksu.*toimistomaksu|sis\.?\s*toimistomaksu/i.test(text);
+    const openingFee = combinedFeeHint
+      ? Math.max(openingFeeBase, toimistomaksu)
+      : (openingFeeBase + toimistomaksu);
 
     // ── Monthly fee (hoitomaksu — recurring, text fallback)
     let monthlyFee = 0;
@@ -387,7 +421,7 @@
     if (location.search.length > 0) return true;
     return !!document.querySelector([
       '.car-list-item', '.listing-item', '.result-item',
-      '[class*="car-item"]', '[class*="listing-card"]', 'article'
+      '[class*="car-item"]', '[class*="listing-card"]'
     ].join(','));
   }
 
@@ -395,7 +429,7 @@
   // Panel injection
   // ────────────────────────────────────────────────────────────────────────────
 
-  function injectPanel(data, deal) {
+  function injectPanel(data) {
     removeExistingPanel();
 
     const panel = document.createElement('div');
@@ -430,7 +464,12 @@
 
       if (!currentDeal) return;
 
-      const verdict = getVerdict(currentDeal.totalFinanceCost, currentData.price);
+      const verdict = getVerdict(
+        currentDeal.totalFinanceCost,
+        currentData.price,
+        currentDeal.apr,
+        currentData.termMonths
+      );
       const confidence = getConfidence(currentData);
 
       const warnings = [];
@@ -446,7 +485,7 @@
         <div class="ads-header">
           <div class="ads-logo">
             <span class="ads-logo-icon">🔍</span>
-            <span class="ads-logo-text">Auto Deal Scanner</span>
+            <span class="ads-logo-text">Nettiauto Financing Analyser</span>
           </div>
           <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <div class="ads-confidence" style="background:${confidence.bg}; color:${confidence.color};">${confidence.labelFi}</div>
@@ -561,8 +600,8 @@
           ${warnings.length ? `<div class="ads-warning">${warnings.map(w => `⚠️ ${w}`).join('<br>')}</div>` : ''}
 
           <div class="ads-footer">
-            Auto Deal Scanner · ilmainen ·
-            <a href="https://github.com/Ahmedaltu/auto-deal-scanner" target="_blank" rel="noopener noreferrer">GitHub</a>
+            Nettiauto Financing Analyser · ilmainen ·
+            <a href="https://github.com/Ahmedaltu/Nettiauto-Financing-Analyser" target="_blank" rel="noopener noreferrer">GitHub</a>
           </div>
         </div>
       `;
@@ -618,14 +657,20 @@
   function injectSearchBadges() {
     if (searchObserver) { searchObserver.disconnect(); searchObserver = null; }
     processSearchCards();
-    searchObserver = new MutationObserver(processSearchCards);
+    searchObserver = new MutationObserver(() => {
+      if (searchRaf) return;
+      searchRaf = requestAnimationFrame(() => {
+        searchRaf = 0;
+        processSearchCards();
+      });
+    });
     searchObserver.observe(document.body, { childList: true, subtree: true });
   }
 
   function processSearchCards() {
     const cards = document.querySelectorAll([
       '.car-list-item', '.listing-item', '.result-item',
-      '[class*="car-item"]', '[class*="listing-card"]', 'article'
+      '[class*="car-item"]', '[class*="listing-card"]'
     ].join(','));
 
     cards.forEach(card => {
@@ -635,14 +680,14 @@
       const price = priceMatch ? extractNumber(priceMatch[1]) : null;
       if (!price || price < 2000) return;
 
-      const monthlyMatch = text.match(/(?:alk\.\s*)?(\d[\d\s,]+)\s*€\s*\/\s*kk/i)
-        || text.match(/[Kk]uukausier[äa]\s*(\d[\d\s,]+)\s*€/i);
+      const monthlyMatch = text.match(/[Kk]uukausier[äa][:\s]*(\d[\d\s,]+)\s*€/i)
+        || text.match(/[Vv]ähimmäiser[äa][:\s]*(\d[\d\s,]+)\s*€/i);
       const monthly = monthlyMatch ? extractNumber(monthlyMatch[1]) : null;
 
       const deal = computeDeal({ price, downPayment: 0, termMonths: 60, nominalRatePct: 4.0, monthlyPaymentGiven: monthly });
       if (!deal) return;
 
-      const verdict = getVerdict(deal.totalFinanceCost, price);
+      const verdict = getVerdict(deal.totalFinanceCost, price, deal.apr, 60);
       const badge = document.createElement('div');
       badge.className = 'ads-badge';
       badge.innerHTML = `<span class="ads-badge-label" style="color:${verdict.color}; border-color:${verdict.color}20; background:${verdict.bg}">~${formatEur(deal.totalPaid, 0)} yhteensä · ${verdict.label}</span>`;
@@ -658,14 +703,33 @@
 
   function waitForFinancingData(callback, timeout = 5000) {
     let done = false;
-    const finish = () => { if (done) return; done = true; observer.disconnect(); callback(); };
-    const start = Date.now();
+    let timeoutId = null;
+
+    const isReady = () => {
+      if (document.querySelector('#opd_mir, #opdLoanPeriod, .vehicle-info-box')) return true;
+      const txt = document.body.textContent || '';
+      return /kuukausier|kuukausimaksu|korko|rahoitus/i.test(txt);
+    };
+
+    const finish = () => {
+      if (done) return;
+      done = true;
+      observer.disconnect();
+      if (timeoutId) clearTimeout(timeoutId);
+      callback();
+    };
+
+    if (isReady()) {
+      callback();
+      return;
+    }
+
     const observer = new MutationObserver(() => {
-      if (/(kk|kuukausier|kuukausimaksu|korko|rahoitus)/i.test(safeText(document.body))) finish();
-      else if (Date.now() - start > timeout) finish();
+      if (isReady()) finish();
     });
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-    setTimeout(finish, timeout);
+
+    observer.observe(document.body, { childList: true, subtree: true });
+    timeoutId = setTimeout(finish, timeout);
   }
 
   function injectNoFinancingPanel(data) {
@@ -676,7 +740,7 @@
       <div class="ads-header">
         <div class="ads-logo">
           <span class="ads-logo-icon">🔍</span>
-          <span class="ads-logo-text">Auto Deal Scanner</span>
+          <span class="ads-logo-text">Nettiauto Financing Analyser</span>
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
           <div class="ads-confidence" style="background:#1c1000; color:#f59e0b;">Ei rahoitusta</div>
@@ -716,8 +780,8 @@
         </div>
         <div id="ads-result-area"></div>
         <div class="ads-footer">
-          Auto Deal Scanner · ilmainen ·
-          <a href="https://github.com/Ahmedaltu/auto-deal-scanner" target="_blank" rel="noopener noreferrer">GitHub</a>
+          Nettiauto Financing Analyser · ilmainen ·
+          <a href="https://github.com/Ahmedaltu/Nettiauto-Financing-Analyser" target="_blank" rel="noopener noreferrer">GitHub</a>
         </div>
       </div>
     `;
@@ -748,7 +812,7 @@
       });
       if (!deal) return;
 
-      const verdict = getVerdict(deal.totalFinanceCost, data.price);
+      const verdict = getVerdict(deal.totalFinanceCost, data.price, deal.apr, term);
       const resultArea = panel.querySelector('#ads-result-area');
       resultArea.innerHTML = `
         <div class="ads-divider"></div>
@@ -825,7 +889,11 @@
           monthlyPaymentGiven: data.monthlyPaymentGiven,
           openingFeeFinanced: data.openingFeeFinanced
         });
-        if (deal) injectPanel(data, deal);
+        if (deal) {
+          injectPanel(data);
+        } else {
+          injectNoFinancingPanel(data);
+        }
       });
     } else if (isSearchPage()) {
       removeExistingPanel();
@@ -842,6 +910,7 @@
   urlObserver = new MutationObserver(() => {
     if (location.href !== lastUrl) {
       lastUrl = location.href;
+      document.querySelectorAll('.ads-badge').forEach(el => el.remove());
       document.querySelectorAll('[data-ads-processed]').forEach(el => delete el.dataset.adsProcessed);
       setTimeout(run, 700);
     }

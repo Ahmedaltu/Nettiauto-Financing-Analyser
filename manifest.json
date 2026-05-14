@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Auto Deal Scanner",
-  "version": "1.0.0",
+  "name": "Nettiauto Financing Analyser",
+  "version": "1.0.1",
   "description": "Näe auton rahoituksen todellinen kokonaishinta suoraan Nettiauto-sivulla. See the real total cost of car financing on Nettiauto.",
   "icons": {
     "16": "icons/icon16.png",

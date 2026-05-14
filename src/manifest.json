@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Nettiauto Financing Analyser (Test)",
+  "version": "1.0.1",
+  "description": "Test manifest for Playwright extension loading from ./src.",
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.nettiauto.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "panel.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [],
+  "host_permissions": [
+    "*://*.nettiauto.com/*"
+  ]
+}

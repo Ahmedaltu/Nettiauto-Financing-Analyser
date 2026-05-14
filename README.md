@@ -17,10 +17,15 @@ Finnish car dealers advertise low monthly payments — but hide the real total c
 - **Deal verdict**: Erinomainen / Hyvä / Kohtalainen / Kallis
 - **Editable inputs** — correct rate or monthly payment and recalculate instantly
 - **Private listing mode** — manual input form when no financing info is shown
+<<<<<<< Updated upstream
 
 
 <img width="770" height="990" alt="image" src="https://github.com/user-attachments/assets/fb0319e7-be0e-4ab3-afe0-3b4fbbce2491" />
 
+=======
+
+<img width="882" height="1282" alt="image" src="https://github.com/user-attachments/assets/cf6c1981-c33f-4675-a29c-c981eacaadb6" />
+>>>>>>> Stashed changes
 
 ---
 
@@ -65,10 +70,12 @@ Injects panel onto the page
 
 | Verdict | Meaning |
 |---|---|
-| ✅ Erinomainen | Overpay < 8% of car price |
-| 🔵 Hyvä | Overpay 8–15% |
-| 🟡 Kohtalainen | Overpay 15–25% |
-| 🔴 Kallis | Overpay > 25% |
+| ✅ Erinomainen | Effective APR < 6% |
+| 🔵 Hyvä | Effective APR 6–9% |
+| 🟡 Kohtalainen | Effective APR 9–13% |
+| 🔴 Kallis | Effective APR > 13% |
+
+If effective APR cannot be computed, verdict falls back to overpay ratio vs. car price.
 
 ---
 
@@ -87,6 +94,37 @@ Injects panel onto the page
 - Chrome Extension Manifest V3
 - CSS injected into Nettiauto pages
 - No remote code — all system fonts, zero external requests
+<<<<<<< Updated upstream
+=======
+
+---
+
+## Regression checks
+
+Run lightweight parser and finance-math checks locally:
+
+```bash
+node tests/regression.js
+```
+
+The script validates key edge cases (Finnish/English number formats, fee handling, balloon loans, and APR behavior).
+
+---
+
+## Playwright UI tests
+
+Install dependencies and run the extension UI suite:
+
+```bash
+npm install
+npx playwright install chromium
+npx playwright test
+```
+
+Notes:
+- The Playwright suite loads the unpacked extension from `./src` using `--load-extension` and `--disable-extensions-except`.
+- Tests use stable Nettiauto fixture URLs defined in `tests/extension.spec.ts`.
+>>>>>>> Stashed changes
 
 ---
 
