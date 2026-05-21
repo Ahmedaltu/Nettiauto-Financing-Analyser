@@ -7,7 +7,7 @@
 
 ## Install
 
-[**Add to Chrome — Free →**](https://chrome.google.com/webstore/detail/nettiauto-financing-analyser)
+[**Add to Chrome — Free →**](https://chromewebstore.google.com/detail/nettiauto-financing-analy/jokpkmmmdnmaomdhkjdinmidhbgbjegb)
 
 ---
 
