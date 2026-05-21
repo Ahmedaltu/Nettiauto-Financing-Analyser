@@ -443,6 +443,34 @@
       monthlyFromPage: data.monthlyPaymentGiven != null,
     };
 
+    async function loadSavedOverrides() {
+      try {
+        const result = await chrome.storage.local.get("userOverrides");
+        if (result.userOverrides) {
+          const { nominalRatePct, monthlyPaymentGiven, savedAt } = result.userOverrides;
+          const now = Date.now();
+          const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+          if (now - savedAt < sevenDaysMs) {
+            // Task 4 Fix: Only update if the specific field exists in storage to avoid wiping defaults
+            if (nominalRatePct !== undefined) {
+              state.nominalRatePct = nominalRatePct;
+              state.rateFromPage = false;
+              const rateInput = panel.querySelector('#ads-rate-input');
+              if (rateInput) rateInput.value = nominalRatePct.toFixed(2);
+            }
+            
+            if (monthlyPaymentGiven !== undefined) {
+              state.monthlyPaymentGiven = monthlyPaymentGiven;
+              state.monthlyFromPage = false;
+              const monthlyInput = panel.querySelector('#ads-monthly-input');
+              if (monthlyInput) monthlyInput.value = monthlyPaymentGiven.toFixed(2);
+            }
+          }
+        }
+      } catch (e) { /* Silently catch storage errors */ }
+    }
+
     function renderPanel() {
       const currentData = {
         ...data,
@@ -594,14 +622,19 @@
                 <span class="ads-input-unit">€</span>
               </div>
             </div>
-            <button class="ads-recalc-btn" id="ads-recalc-btn">🔄 Laske uudelleen</button>
+            <div style="display:flex; align-items:center; gap:12px; margin-top:10px;">
+              <button class="ads-recalc-btn" id="ads-recalc-btn" style="margin-top:0; flex:1;">🔄 Laske uudelleen</button>
+              <button id="ads-reset-overrides" style="all:unset; cursor:pointer; font-size:11px; color:#6b7280; text-decoration:underline;">Nollaa</button>
+            </div>
           </div>
 
           ${warnings.length ? `<div class="ads-warning">${warnings.map(w => `⚠️ ${w}`).join('<br>')}</div>` : ''}
 
+          <!-- Task 2: Report broken data with dynamic URL -->
           <div class="ads-footer">
             Nettiauto Financing Analyser · ilmainen ·
             <a href="https://github.com/Ahmedaltu/Nettiauto-Financing-Analyser" target="_blank" rel="noopener noreferrer">GitHub</a>
+            · <a href="https://github.com/Ahmedaltu/Nettiauto-Financing-Analyser/issues/new?title=Broken+data&body=Listing+URL:+${encodeURIComponent(window.location.href)}" target="_blank" rel="noopener noreferrer">⚠️ Report broken data</a>
           </div>
         </div>
       `;
@@ -620,15 +653,33 @@
         const rateVal = parseFloat(panel.querySelector('#ads-rate-input').value);
         const monthlyVal = parseFloat(panel.querySelector('#ads-monthly-input').value);
 
+        const overrides = { savedAt: Date.now() };
+
         if (Number.isFinite(rateVal) && rateVal >= 0 && rateVal <= 30) {
           state.nominalRatePct = rateVal;
           state.rateFromPage = false;
+          overrides.nominalRatePct = rateVal;
         }
         if (Number.isFinite(monthlyVal) && monthlyVal >= 10) {
           state.monthlyPaymentGiven = monthlyVal;
           state.monthlyFromPage = false;
+          overrides.monthlyPaymentGiven = monthlyVal;
         }
 
+        // Task 1: Save overrides to storage
+        chrome.storage.local.set({ userOverrides: overrides }).catch(() => {});
+
+        renderPanel();
+      });
+
+      // Reset button listener
+      panel.querySelector('#ads-reset-overrides')?.addEventListener('click', () => {
+        chrome.storage.local.remove("userOverrides").catch(() => {});
+        // Re-parse or just reset state to parsed data
+        state.nominalRatePct = data.nominalRatePct ?? 4.0;
+        state.monthlyPaymentGiven = data.monthlyPaymentGiven ?? null;
+        state.rateFromPage = data.nominalRatePct != null;
+        state.monthlyFromPage = data.monthlyPaymentGiven != null;
         renderPanel();
       });
 
@@ -641,6 +692,8 @@
     }
 
     renderPanel();
+    // Task 1: Load storage AFTER initial render to avoid race conditions
+    loadSavedOverrides();
 
     const h1 = document.querySelector('h1');
     if (h1 && h1.parentElement) {
@@ -781,7 +834,8 @@
         <div id="ads-result-area"></div>
         <div class="ads-footer">
           Nettiauto Financing Analyser · ilmainen ·
-          <a href="https://github.com/Ahmedaltu/Nettiauto-Financing-Analyser" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://github.com/Ahmedaltu/Nettiauto-Financing-Analyser" target="_blank" rel="noopener noreferrer">GitHub</a> ·
+          <a href="https://github.com/Ahmedaltu/Nettiauto-Financing-Analyser/issues/new?title=Broken+data&body=Listing+URL:+${encodeURIComponent(window.location.href)}" target="_blank" rel="noopener noreferrer">⚠️ Report broken data</a>
         </div>
       </div>
     `;
@@ -909,6 +963,8 @@
   if (urlObserver) urlObserver.disconnect();
   urlObserver = new MutationObserver(() => {
     if (location.href !== lastUrl) {
+      // Task 1: Clear overrides on navigation so next listing uses parsed defaults
+      chrome.storage.local.remove("userOverrides").catch(() => {});
       lastUrl = location.href;
       document.querySelectorAll('.ads-badge').forEach(el => el.remove());
       document.querySelectorAll('[data-ads-processed]').forEach(el => delete el.dataset.adsProcessed);
