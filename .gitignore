@@ -1,4 +1,9 @@
 .DS_Store
+.claude/
 *.zip
 node_modules/
 generate_icons.py
+
+package.json
+package-lock.json
+scripts/

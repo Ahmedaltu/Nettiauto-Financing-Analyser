@@ -420,6 +420,7 @@
     if (isListingPage()) return false;
     if (location.search.length > 0) return true;
     return !!document.querySelector([
+      '.product-card',
       '.car-list-item', '.listing-item', '.result-item',
       '[class*="car-item"]', '[class*="listing-card"]'
     ].join(','));
@@ -439,32 +440,38 @@
     const state = {
       nominalRatePct: data.nominalRatePct ?? 4.0,
       monthlyPaymentGiven: data.monthlyPaymentGiven ?? null,
+      monthlyFee: data.monthlyFee ?? 0,
       rateFromPage: data.nominalRatePct != null,
       monthlyFromPage: data.monthlyPaymentGiven != null,
+      monthlyFeeFromPage: (data.monthlyFee ?? 0) > 0,
     };
 
     async function loadSavedOverrides() {
       try {
         const result = await chrome.storage.local.get("userOverrides");
         if (result.userOverrides) {
-          const { nominalRatePct, monthlyPaymentGiven, savedAt } = result.userOverrides;
+          const { nominalRatePct, monthlyPaymentGiven, monthlyFee, savedAt } = result.userOverrides;
           const now = Date.now();
           const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
           if (now - savedAt < sevenDaysMs) {
-            // Task 4 Fix: Only update if the specific field exists in storage to avoid wiping defaults
             if (nominalRatePct !== undefined) {
               state.nominalRatePct = nominalRatePct;
               state.rateFromPage = false;
               const rateInput = panel.querySelector('#ads-rate-input');
               if (rateInput) rateInput.value = nominalRatePct.toFixed(2);
             }
-            
             if (monthlyPaymentGiven !== undefined) {
               state.monthlyPaymentGiven = monthlyPaymentGiven;
               state.monthlyFromPage = false;
               const monthlyInput = panel.querySelector('#ads-monthly-input');
               if (monthlyInput) monthlyInput.value = monthlyPaymentGiven.toFixed(2);
+            }
+            if (monthlyFee !== undefined) {
+              state.monthlyFee = monthlyFee;
+              state.monthlyFeeFromPage = false;
+              const hInput = panel.querySelector('#ads-hoito-input');
+              if (hInput) hInput.value = monthlyFee.toFixed(2);
             }
           }
         }
@@ -476,6 +483,7 @@
         ...data,
         nominalRatePct: state.nominalRatePct,
         monthlyPaymentGiven: state.monthlyPaymentGiven,
+        monthlyFee: state.monthlyFee,
       };
 
       const currentDeal = computeDeal({
@@ -483,7 +491,7 @@
         downPayment: currentData.downPayment,
         termMonths: currentData.termMonths || 60,
         nominalRatePct: state.nominalRatePct,
-        monthlyFee: currentData.monthlyFee || 0,
+        monthlyFee: state.monthlyFee,
         openingFee: currentData.openingFee || 0,
         balloon: currentData.balloon || 0,
         monthlyPaymentGiven: state.monthlyPaymentGiven,
@@ -622,6 +630,23 @@
                 <span class="ads-input-unit">€</span>
               </div>
             </div>
+            <div class="ads-input-row">
+              <label class="ads-input-label" for="ads-hoito-input">
+                Hoitomaksu €/kk
+                ${state.monthlyFeeFromPage ? '<span class="ads-from-page">(sivulta)</span>' : '<span class="ads-note">(pankin kulut)</span>'}
+              </label>
+              <div class="ads-input-wrap">
+                <input
+                  id="ads-hoito-input"
+                  class="ads-input"
+                  type="number"
+                  min="0" max="99" step="0.01"
+                  value="${state.monthlyFee.toFixed(2)}"
+                  placeholder="esim. 3.90"
+                />
+                <span class="ads-input-unit">€</span>
+              </div>
+            </div>
             <div style="display:flex; align-items:center; gap:12px; margin-top:10px;">
               <button class="ads-recalc-btn" id="ads-recalc-btn" style="margin-top:0; flex:1;">🔄 Laske uudelleen</button>
               <button id="ads-reset-overrides" style="all:unset; cursor:pointer; font-size:11px; color:#6b7280; text-decoration:underline;">Nollaa</button>
@@ -650,8 +675,9 @@
 
       // Recalculate button
       panel.querySelector('#ads-recalc-btn').addEventListener('click', () => {
-        const rateVal = parseFloat(panel.querySelector('#ads-rate-input').value);
+        const rateVal    = parseFloat(panel.querySelector('#ads-rate-input').value);
         const monthlyVal = parseFloat(panel.querySelector('#ads-monthly-input').value);
+        const hVal       = parseFloat(panel.querySelector('#ads-hoito-input').value);
 
         const overrides = { savedAt: Date.now() };
 
@@ -665,8 +691,12 @@
           state.monthlyFromPage = false;
           overrides.monthlyPaymentGiven = monthlyVal;
         }
+        if (Number.isFinite(hVal) && hVal >= 0 && hVal <= 99) {
+          state.monthlyFee = hVal;
+          state.monthlyFeeFromPage = false;
+          overrides.monthlyFee = hVal;
+        }
 
-        // Task 1: Save overrides to storage
         chrome.storage.local.set({ userOverrides: overrides }).catch(() => {});
 
         renderPanel();
@@ -675,16 +705,17 @@
       // Reset button listener
       panel.querySelector('#ads-reset-overrides')?.addEventListener('click', () => {
         chrome.storage.local.remove("userOverrides").catch(() => {});
-        // Re-parse or just reset state to parsed data
         state.nominalRatePct = data.nominalRatePct ?? 4.0;
         state.monthlyPaymentGiven = data.monthlyPaymentGiven ?? null;
+        state.monthlyFee = data.monthlyFee ?? 0;
         state.rateFromPage = data.nominalRatePct != null;
         state.monthlyFromPage = data.monthlyPaymentGiven != null;
+        state.monthlyFeeFromPage = (data.monthlyFee ?? 0) > 0;
         renderPanel();
       });
 
       // Also recalc on Enter key in inputs
-      ['#ads-rate-input', '#ads-monthly-input'].forEach(sel => {
+      ['#ads-rate-input', '#ads-monthly-input', '#ads-hoito-input'].forEach(sel => {
         panel.querySelector(sel)?.addEventListener('keydown', e => {
           if (e.key === 'Enter') panel.querySelector('#ads-recalc-btn').click();
         });
@@ -722,6 +753,7 @@
 
   function processSearchCards() {
     const cards = document.querySelectorAll([
+      '.product-card',
       '.car-list-item', '.listing-item', '.result-item',
       '[class*="car-item"]', '[class*="listing-card"]'
     ].join(','));
@@ -829,6 +861,13 @@
               <span class="ads-input-unit">kk</span>
             </div>
           </div>
+          <div class="ads-input-row">
+            <label class="ads-input-label" for="ads-hoito-input">Hoitomaksu €/kk <span class="ads-note">(pankin kulut)</span></label>
+            <div class="ads-input-wrap">
+              <input id="ads-hoito-input" class="ads-input" type="number" min="0" max="99" step="0.01" value="0" placeholder="esim. 3.90"/>
+              <span class="ads-input-unit">€</span>
+            </div>
+          </div>
           <button class="ads-recalc-btn" id="ads-recalc-btn">🔄 Laske</button>
         </div>
         <div id="ads-result-area"></div>
@@ -849,9 +888,10 @@
     });
 
     panel.querySelector('#ads-recalc-btn').addEventListener('click', () => {
-      const rate = parseFloat(panel.querySelector('#ads-rate-input').value);
+      const rate    = parseFloat(panel.querySelector('#ads-rate-input').value);
       const monthly = parseFloat(panel.querySelector('#ads-monthly-input').value);
-      const term = parseInt(panel.querySelector('#ads-term-input').value);
+      const term    = parseInt(panel.querySelector('#ads-term-input').value);
+      const hoito   = parseFloat(panel.querySelector('#ads-hoito-input').value) || 0;
       if (!Number.isFinite(rate) || !Number.isFinite(term)) return;
 
       const deal = computeDeal({
@@ -859,7 +899,7 @@
         downPayment: 0,
         termMonths: term,
         nominalRatePct: rate,
-        monthlyFee: 0,
+        monthlyFee: hoito,
         openingFee: 0,
         balloon: 0,
         monthlyPaymentGiven: Number.isFinite(monthly) && monthly > 0 ? monthly : null,
@@ -899,7 +939,7 @@
       `;
     });
 
-    ['#ads-rate-input', '#ads-monthly-input', '#ads-term-input'].forEach(sel => {
+    ['#ads-rate-input', '#ads-monthly-input', '#ads-term-input', '#ads-hoito-input'].forEach(sel => {
       panel.querySelector(sel)?.addEventListener('keydown', e => {
         if (e.key === 'Enter') panel.querySelector('#ads-recalc-btn').click();
       });
